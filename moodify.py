@@ -111,7 +111,7 @@ def detect_emotion_from_image(image):
 def main():
     st.set_page_config(page_title="Moodify 🎵", layout="centered")
 
-    st.title("🎵 Music Recommendation from Facial Emotion")
+    st.title("🎵 Music Recommendation from Facial Emotion - Praveen Kumar")
     st.write("Capture your face and get music recommendations based on your mood!")
 
     img_file = st.camera_input("📸 Capture your face")
@@ -146,3 +146,4 @@ def main():
 # -----------------------------
 if __name__ == "__main__":
     main()
+
