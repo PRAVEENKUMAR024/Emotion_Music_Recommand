@@ -1,6 +1,6 @@
 streamlit
 opencv-python-headless
 numpy
-tensorflow
-keras
-youtube-search-python
+deepface
+tensorflow==2.12.0
+keras==2.12.0
