@@ -1,185 +1,145 @@
 import streamlit as st
 import cv2
 import numpy as np
-from keras.models import load_model
-from youtubesearchpython import VideosSearch
+from deepface import DeepFace
 import webbrowser
+import urllib.parse
 import tempfile
 
-# -------------------------------
-# Load Trained Emotion Model
-# -------------------------------
-emotion_model = load_model("emotion_model.h5")
-
-# Emotion Labels
-emotion_labels = [
-    'Angry',
-    'Disgust',
-    'Fear',
-    'Happy',
-    'Sad',
-    'Surprise',
-    'Neutral'
-]
-
-# -------------------------------
-# Emotion → YouTube Music Mapping
-# -------------------------------
-def get_song_query(emotion):
-
-    mapping = {
-        'Happy': 'happy tamil songs',
-        'Sad': 'sad melody tamil songs',
-        'Angry': 'motivational rap songs',
-        'Surprise': 'party dance songs',
-        'Neutral': 'relaxing instrumental music',
-        'Fear': 'calm peaceful music',
-        'Disgust': 'rock music'
-    }
-
-    return mapping.get(emotion, 'top tamil songs')
-
-
-# -------------------------------
-# YouTube Song Search
-# -------------------------------
-def get_youtube_song(query):
-
-    videosSearch = VideosSearch(query, limit=5)
-
-    results = videosSearch.result()
-
-    songs = []
-
-    for item in results['result']:
-
-        songs.append({
-            'title': item['title'],
-            'channel': item['channel']['name'],
-            'link': item['link']
-        })
-
-    return songs
-
-
-# -------------------------------
-# Emotion Detection Function
-# -------------------------------
-def detect_emotion_from_image(image):
-
-    # Load Haar Cascade
-    face_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades +
-        "haarcascade_frontalface_default.xml"
-    )
-
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Detect faces
-    faces = face_cascade.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5
-    )
-
-    # Process detected face
-    for (x, y, w, h) in faces:
-
-        roi = gray[y:y+h, x:x+w]
-
-        roi = cv2.resize(roi, (48, 48))
-
-        roi = roi.astype("float32") / 255.0
-
-        roi = np.expand_dims(roi, axis=0)
-
-        roi = np.expand_dims(roi, axis=-1)
-
-        # Predict emotion
-        prediction = emotion_model.predict(roi)
-
-        max_index = int(np.argmax(prediction))
-
-        detected_emotion = emotion_labels[max_index]
-
-        return detected_emotion
-
-    return "Neutral"
-
-
-# -------------------------------
-# Streamlit UI
-# -------------------------------
+# -----------------------------------
+# PAGE CONFIG
+# -----------------------------------
 st.set_page_config(
     page_title="Moodify",
     page_icon="🎵",
     layout="centered"
 )
 
+# -----------------------------------
+# TITLE
+# -----------------------------------
 st.title("🎵 Moodify")
-st.subheader("Music Recommendation Based on Facial Emotion")
+st.subheader("Music Recommendation System Based on Facial Emotion")
 
 st.write("""
-This application detects your facial emotion using Deep Learning
+This application detects your facial emotion using Artificial Intelligence
 and recommends songs from YouTube based on your mood.
 """)
 
-# -------------------------------
-# Camera Input
-# -------------------------------
-img_file = st.camera_input("Capture Your Face")
+# -----------------------------------
+# EMOTION → MUSIC MAPPING
+# -----------------------------------
+def get_music_query(emotion):
 
-# -------------------------------
-# Process Image
-# -------------------------------
+    emotion = emotion.lower()
+
+    mapping = {
+
+        "happy": "happy tamil songs",
+
+        "sad": "sad melody tamil songs",
+
+        "angry": "motivational rap songs",
+
+        "fear": "calm relaxing music",
+
+        "surprise": "party dance songs",
+
+        "neutral": "relaxing instrumental music",
+
+        "disgust": "rock music"
+    }
+
+    return mapping.get(emotion, "top tamil songs")
+
+
+# -----------------------------------
+# YOUTUBE SEARCH LINK
+# -----------------------------------
+def get_youtube_link(query):
+
+    search_query = urllib.parse.quote(query)
+
+    youtube_url = (
+        f"https://www.youtube.com/results?"
+        f"search_query={search_query}"
+    )
+
+    return youtube_url
+
+
+# -----------------------------------
+# EMOTION DETECTION
+# -----------------------------------
+def detect_emotion(image):
+
+    try:
+
+        result = DeepFace.analyze(
+            image,
+            actions=['emotion'],
+            enforce_detection=False
+        )
+
+        emotion = result[0]['dominant_emotion']
+
+        return emotion
+
+    except Exception as e:
+
+        st.error(f"Error: {e}")
+
+        return "neutral"
+
+
+# -----------------------------------
+# CAMERA INPUT
+# -----------------------------------
+img_file = st.camera_input("📸 Capture Your Face")
+
+# -----------------------------------
+# PROCESS IMAGE
+# -----------------------------------
 if img_file is not None:
 
-    # Save image temporarily
+    # Save temporary image
     tfile = tempfile.NamedTemporaryFile(delete=False)
 
     tfile.write(img_file.getvalue())
 
-    # Read image using OpenCV
+    # Read image
     frame = cv2.imread(tfile.name)
 
     # Detect emotion
-    emotion = detect_emotion_from_image(frame)
+    emotion = detect_emotion(frame)
 
-    st.success(f"Detected Emotion: {emotion}")
+    st.success(f"Detected Emotion: {emotion.upper()}")
 
-    # Get search query
-    query = get_song_query(emotion)
+    # Get music query
+    music_query = get_music_query(emotion)
 
-    st.info(f"Recommended Music Type: {query}")
+    st.info(f"Recommended Music Type: {music_query}")
 
-    # Fetch YouTube songs
-    songs = get_youtube_song(query)
+    # Get YouTube link
+    youtube_link = get_youtube_link(music_query)
 
-    st.subheader("🎶 Recommended Songs")
+    # Display link
+    st.markdown(
+        f"""
+        ### 🎶 Open Recommended Songs
+        
+        [▶ Click Here to Play Music]({youtube_link})
+        """
+    )
 
-    # Display Songs
-    for i, song in enumerate(songs):
+    # Open automatically
+    webbrowser.open(youtube_link)
 
-        st.write(f"### {i+1}. {song['title']}")
+    st.balloons()
 
-        st.write(f"Channel: {song['channel']}")
-
-        st.markdown(
-            f"[▶ Watch on YouTube]({song['link']})"
-        )
-
-    # Auto Open First Song
-    if len(songs) > 0:
-
-        webbrowser.open(songs[0]['link'])
-
-    st.success("Enjoy Your Music 🎧")
-
-
-# -------------------------------
-# Footer
-# -------------------------------
+# -----------------------------------
+# FOOTER
+# -----------------------------------
 st.markdown("---")
 
-st.write("Developed using CNN, OpenCV, Streamlit, and YouTube Search API")
+st.write("Developed using DeepFace, OpenCV, Streamlit, and YouTube")
