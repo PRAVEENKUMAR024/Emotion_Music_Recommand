@@ -2,148 +2,184 @@ import streamlit as st
 import cv2
 import numpy as np
 from keras.models import load_model
-from spotipy.oauth2 import SpotifyClientCredentials
-import spotipy
+from youtubesearchpython import VideosSearch
+import webbrowser
 import tempfile
-import os
 
-# -----------------------------
-# Load Emotion Model
-# -----------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "emotion_model.h5")
+# -------------------------------
+# Load Trained Emotion Model
+# -------------------------------
+emotion_model = load_model("emotion_model.h5")
 
-emotion_model = load_model(MODEL_PATH)
-
+# Emotion Labels
 emotion_labels = [
-    'Angry', 'Disgust', 'Fear',
-    'Happy', 'Sad', 'Surprise', 'Neutral'
+    'Angry',
+    'Disgust',
+    'Fear',
+    'Happy',
+    'Sad',
+    'Surprise',
+    'Neutral'
 ]
 
-# -----------------------------
-# Spotify Authentication
-# -----------------------------
-client_id = st.secrets["SPOTIFY_CLIENT_ID"]
-client_secret = st.secrets["SPOTIFY_CLIENT_SECRET"]
+# -------------------------------
+# Emotion → YouTube Music Mapping
+# -------------------------------
+def get_song_query(emotion):
 
-sp = spotipy.Spotify(
-    auth_manager=SpotifyClientCredentials(
-        client_id=client_id,
-        client_secret=client_secret
-    )
-)
-
-# -----------------------------
-# Emotion → Genre Mapping
-# -----------------------------
-def get_genre(emotion):
     mapping = {
-        'Happy': 'pop',
-        'Sad': 'acoustic',
-        'Angry': 'rock',
-        'Surprise': 'dance',
-        'Neutral': 'chill',
-        'Fear': 'ambient',
-        'Disgust': 'metal'
+        'Happy': 'happy tamil songs',
+        'Sad': 'sad melody tamil songs',
+        'Angry': 'motivational rap songs',
+        'Surprise': 'party dance songs',
+        'Neutral': 'relaxing instrumental music',
+        'Fear': 'calm peaceful music',
+        'Disgust': 'rock music'
     }
-    return mapping.get(emotion, 'pop')
 
-# -----------------------------
-# Spotify Song Fetch
-# -----------------------------
-def get_tracks_by_genre(genre):
-    results = sp.search(
-        q=f'genre:{genre}',
-        type='track',
-        limit=5
-    )
+    return mapping.get(emotion, 'top tamil songs')
 
-    tracks = []
-    for item in results['tracks']['items']:
-        tracks.append({
-            "name": item['name'],
-            "artist": item['artists'][0]['name'],
-            "url": item['external_urls']['spotify']
+
+# -------------------------------
+# YouTube Song Search
+# -------------------------------
+def get_youtube_song(query):
+
+    videosSearch = VideosSearch(query, limit=5)
+
+    results = videosSearch.result()
+
+    songs = []
+
+    for item in results['result']:
+
+        songs.append({
+            'title': item['title'],
+            'channel': item['channel']['name'],
+            'link': item['link']
         })
 
-    return tracks
+    return songs
 
-# -----------------------------
-# Emotion Detection (FIXED)
-# -----------------------------
+
+# -------------------------------
+# Emotion Detection Function
+# -------------------------------
 def detect_emotion_from_image(image):
+
+    # Load Haar Cascade
     face_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        cv2.data.haarcascades +
+        "haarcascade_frontalface_default.xml"
     )
 
+    # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Detect faces
     faces = face_cascade.detectMultiScale(
         gray,
-        scaleFactor=1.3,
+        scaleFactor=1.1,
         minNeighbors=5
     )
 
-    if len(faces) == 0:
-        return "Neutral"
-
+    # Process detected face
     for (x, y, w, h) in faces:
+
         roi = gray[y:y+h, x:x+w]
 
-        # Resize to model input
         roi = cv2.resize(roi, (48, 48))
 
-        # Normalize
-        roi = roi / 255.0
+        roi = roi.astype("float32") / 255.0
 
-        # Reshape → (1, 48, 48, 1)
-        roi = roi.reshape(1, 48, 48, 1)
+        roi = np.expand_dims(roi, axis=0)
 
-        prediction = emotion_model.predict(roi, verbose=0)
-        emotion_index = int(np.argmax(prediction))
+        roi = np.expand_dims(roi, axis=-1)
 
-        return emotion_labels[emotion_index]
+        # Predict emotion
+        prediction = emotion_model.predict(roi)
+
+        max_index = int(np.argmax(prediction))
+
+        detected_emotion = emotion_labels[max_index]
+
+        return detected_emotion
 
     return "Neutral"
 
-# -----------------------------
-# Streamlit App
-# -----------------------------
-def main():
-    st.set_page_config(page_title="Moodify 🎵", layout="centered")
 
-    st.title("🎵 Music Recommendation from Facial Emotion - Praveen Kumar")
-    st.write("Capture your face and get music recommendations based on your mood!")
+# -------------------------------
+# Streamlit UI
+# -------------------------------
+st.set_page_config(
+    page_title="Moodify",
+    page_icon="🎵",
+    layout="centered"
+)
 
-    img_file = st.camera_input("📸 Capture your face")
+st.title("🎵 Moodify")
+st.subheader("Music Recommendation Based on Facial Emotion")
 
-    if img_file is not None:
-        # Save image temporarily
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file.write(img_file.getvalue())
-        temp_file.close()
+st.write("""
+This application detects your facial emotion using Deep Learning
+and recommends songs from YouTube based on your mood.
+""")
 
-        frame = cv2.imread(temp_file.name)
+# -------------------------------
+# Camera Input
+# -------------------------------
+img_file = st.camera_input("Capture Your Face")
 
-        emotion = detect_emotion_from_image(frame)
-        genre = get_genre(emotion)
-        tracks = get_tracks_by_genre(genre)
+# -------------------------------
+# Process Image
+# -------------------------------
+if img_file is not None:
 
-        st.subheader(f"😀 Detected Emotion: **{emotion}**")
-        st.subheader(f"🎧 Recommended Genre: **{genre}**")
+    # Save image temporarily
+    tfile = tempfile.NamedTemporaryFile(delete=False)
 
-        if tracks:
-            st.markdown("### 🎶 Recommended Songs")
-            for i, track in enumerate(tracks, start=1):
-                st.markdown(
-                    f"**{i}. {track['name']}** by *{track['artist']}*  \n"
-                    f"[🔗 Listen on Spotify]({track['url']})"
-                )
-        else:
-            st.warning("No tracks found. Try again!")
+    tfile.write(img_file.getvalue())
 
-# -----------------------------
-# Entry Point
-# -----------------------------
-if __name__ == "__main__":
-    main()
+    # Read image using OpenCV
+    frame = cv2.imread(tfile.name)
 
+    # Detect emotion
+    emotion = detect_emotion_from_image(frame)
+
+    st.success(f"Detected Emotion: {emotion}")
+
+    # Get search query
+    query = get_song_query(emotion)
+
+    st.info(f"Recommended Music Type: {query}")
+
+    # Fetch YouTube songs
+    songs = get_youtube_song(query)
+
+    st.subheader("🎶 Recommended Songs")
+
+    # Display Songs
+    for i, song in enumerate(songs):
+
+        st.write(f"### {i+1}. {song['title']}")
+
+        st.write(f"Channel: {song['channel']}")
+
+        st.markdown(
+            f"[▶ Watch on YouTube]({song['link']})"
+        )
+
+    # Auto Open First Song
+    if len(songs) > 0:
+
+        webbrowser.open(songs[0]['link'])
+
+    st.success("Enjoy Your Music 🎧")
+
+
+# -------------------------------
+# Footer
+# -------------------------------
+st.markdown("---")
+
+st.write("Developed using CNN, OpenCV, Streamlit, and YouTube Search API")
