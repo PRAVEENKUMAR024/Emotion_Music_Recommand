@@ -29,8 +29,6 @@ and recommends songs from YouTube based on your mood.
 # -----------------------------------
 def get_music_query(emotion):
 
-    emotion = emotion.lower()
-
     mapping = {
 
         "happy": "happy tamil songs",
@@ -48,7 +46,10 @@ def get_music_query(emotion):
         "disgust": "rock music"
     }
 
-    return mapping.get(emotion, "top tamil songs")
+    return mapping.get(
+        emotion.lower(),
+        "top tamil songs"
+    )
 
 
 # -----------------------------------
@@ -58,12 +59,10 @@ def get_youtube_link(query):
 
     search_query = urllib.parse.quote(query)
 
-    youtube_url = (
+    return (
         f"https://www.youtube.com/results?"
         f"search_query={search_query}"
     )
-
-    return youtube_url
 
 
 # -----------------------------------
@@ -85,7 +84,7 @@ def detect_emotion(image):
 
     except Exception as e:
 
-        st.error(f"Error Detecting Emotion: {e}")
+        st.error(f"Emotion Detection Error: {e}")
 
         return "neutral"
 
@@ -93,8 +92,9 @@ def detect_emotion(image):
 # -----------------------------------
 # CAMERA INPUT
 # -----------------------------------
-img_file = st.camera_input("📸 Capture Your Face")
-
+img_file = st.camera_input(
+    "📸 Capture Your Face"
+)
 
 # -----------------------------------
 # PROCESS IMAGE
@@ -103,40 +103,51 @@ if img_file is not None:
 
     try:
 
-        # Convert image bytes to numpy array
         file_bytes = np.asarray(
             bytearray(img_file.read()),
             dtype=np.uint8
         )
 
-        # Decode image
-        frame = cv2.imdecode(file_bytes, 1)
+        frame = cv2.imdecode(
+            file_bytes,
+            cv2.IMREAD_COLOR
+        )
 
-        # Show captured image
-        st.image(frame, channels="BGR")
+        st.image(
+            frame,
+            channels="BGR"
+        )
 
-        # Detect emotion
-        with st.spinner("Detecting Emotion..."):
+        with st.spinner(
+            "Detecting Emotion..."
+        ):
 
             emotion = detect_emotion(frame)
 
-        # Display emotion
-        st.success(f"Detected Emotion: {emotion.upper()}")
+        st.success(
+            f"Detected Emotion: "
+            f"{emotion.upper()}"
+        )
 
-        # Get music recommendation
-        music_query = get_music_query(emotion)
+        music_query = get_music_query(
+            emotion
+        )
 
-        st.info(f"Recommended Music Type: {music_query}")
+        st.info(
+            f"Recommended Music: "
+            f"{music_query}"
+        )
 
-        # Generate YouTube link
-        youtube_link = get_youtube_link(music_query)
+        youtube_link = get_youtube_link(
+            music_query
+        )
 
-        # Display clickable link
         st.markdown(
             f"""
             ### 🎶 Recommended Songs
-            
-            [▶ Click Here to Play Music]({youtube_link})
+
+            [▶ Click Here to Play Music]
+            ({youtube_link})
             """
         )
 
@@ -146,10 +157,12 @@ if img_file is not None:
 
         st.error(f"Application Error: {e}")
 
-
 # -----------------------------------
 # FOOTER
 # -----------------------------------
 st.markdown("---")
 
-st.write("Developed using Streamlit, DeepFace, OpenCV, and YouTube")
+st.write(
+    "Developed using Streamlit, "
+    "DeepFace, OpenCV, and YouTube"
+)
