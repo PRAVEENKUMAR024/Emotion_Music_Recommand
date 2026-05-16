@@ -1,10 +1,9 @@
 import streamlit as st
-import cv2
 import numpy as np
 from deepface import DeepFace
-import webbrowser
 import urllib.parse
-import tempfile
+import webbrowser
+import cv2
 
 # -----------------------------------
 # PAGE CONFIG
@@ -22,7 +21,7 @@ st.title("🎵 Moodify")
 st.subheader("Music Recommendation System Based on Facial Emotion")
 
 st.write("""
-This application detects your facial emotion using Artificial Intelligence
+This application detects your facial emotion using AI
 and recommends songs from YouTube based on your mood.
 """)
 
@@ -31,26 +30,17 @@ and recommends songs from YouTube based on your mood.
 # -----------------------------------
 def get_music_query(emotion):
 
-    emotion = emotion.lower()
-
     mapping = {
-
         "happy": "happy tamil songs",
-
         "sad": "sad melody tamil songs",
-
         "angry": "motivational rap songs",
-
         "fear": "calm relaxing music",
-
         "surprise": "party dance songs",
-
         "neutral": "relaxing instrumental music",
-
         "disgust": "rock music"
     }
 
-    return mapping.get(emotion, "top tamil songs")
+    return mapping.get(emotion.lower(), "top tamil songs")
 
 
 # -----------------------------------
@@ -60,12 +50,7 @@ def get_youtube_link(query):
 
     search_query = urllib.parse.quote(query)
 
-    youtube_url = (
-        f"https://www.youtube.com/results?"
-        f"search_query={search_query}"
-    )
-
-    return youtube_url
+    return f"https://www.youtube.com/results?search_query={search_query}"
 
 
 # -----------------------------------
@@ -102,38 +87,27 @@ img_file = st.camera_input("📸 Capture Your Face")
 # -----------------------------------
 if img_file is not None:
 
-    # Save temporary image
-    tfile = tempfile.NamedTemporaryFile(delete=False)
+    # Convert image bytes to OpenCV format
+    file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
 
-    tfile.write(img_file.getvalue())
-
-    # Read image
-    frame = cv2.imread(tfile.name)
+    frame = cv2.imdecode(file_bytes, 1)
 
     # Detect emotion
     emotion = detect_emotion(frame)
 
     st.success(f"Detected Emotion: {emotion.upper()}")
 
-    # Get music query
+    # Music recommendation
     music_query = get_music_query(emotion)
 
     st.info(f"Recommended Music Type: {music_query}")
 
-    # Get YouTube link
+    # YouTube link
     youtube_link = get_youtube_link(music_query)
 
-    # Display link
     st.markdown(
-        f"""
-        ### 🎶 Open Recommended Songs
-        
-        [▶ Click Here to Play Music]({youtube_link})
-        """
+        f"[▶ Click Here to Play Music]({youtube_link})"
     )
-
-    # Open automatically
-    webbrowser.open(youtube_link)
 
     st.balloons()
 
