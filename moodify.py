@@ -20,8 +20,8 @@ st.title("🎵 Moodify")
 st.subheader("Music Recommendation System Based on Facial Emotion")
 
 st.write("""
-This application detects your facial emotion using AI
-and recommends songs from YouTube based on your mood.
+Capture your face and Moodify will detect your emotion
+and recommend music from YouTube.
 """)
 
 # -----------------------------------
@@ -29,7 +29,7 @@ and recommends songs from YouTube based on your mood.
 # -----------------------------------
 def get_music_query(emotion):
 
-    mapping = {
+    emotion_map = {
 
         "happy": "happy tamil songs",
 
@@ -39,34 +39,34 @@ def get_music_query(emotion):
 
         "fear": "calm relaxing music",
 
-        "surprise": "party dance songs",
+        "surprise": "party dance tamil songs",
 
-        "neutral": "relaxing instrumental music",
+        "neutral": "relaxing instrumental tamil music",
 
         "disgust": "rock music"
     }
 
-    return mapping.get(
+    return emotion_map.get(
         emotion.lower(),
         "top tamil songs"
     )
 
 
 # -----------------------------------
-# YOUTUBE SEARCH LINK
+# YOUTUBE LINK
 # -----------------------------------
 def get_youtube_link(query):
 
-    search_query = urllib.parse.quote(query)
+    query = urllib.parse.quote(query)
 
     return (
         f"https://www.youtube.com/results?"
-        f"search_query={search_query}"
+        f"search_query={query}"
     )
 
 
 # -----------------------------------
-# EMOTION DETECTION
+# DETECT EMOTION
 # -----------------------------------
 def detect_emotion(image):
 
@@ -78,7 +78,7 @@ def detect_emotion(image):
             enforce_detection=False
         )
 
-        emotion = result[0]['dominant_emotion']
+        emotion = result[0]["dominant_emotion"]
 
         return emotion
 
@@ -103,32 +103,40 @@ if img_file is not None:
 
     try:
 
-        file_bytes = np.asarray(
-            bytearray(img_file.read()),
-            dtype=np.uint8
+        # Convert image to numpy array
+        bytes_data = img_file.getvalue()
+
+        np_array = np.frombuffer(
+            bytes_data,
+            np.uint8
         )
 
-        frame = cv2.imdecode(
-            file_bytes,
+        # Decode image
+        image = cv2.imdecode(
+            np_array,
             cv2.IMREAD_COLOR
         )
 
+        # Display image
         st.image(
-            frame,
+            image,
             channels="BGR"
         )
 
+        # Detect emotion
         with st.spinner(
-            "Detecting Emotion..."
+            "Analyzing Emotion..."
         ):
 
-            emotion = detect_emotion(frame)
+            emotion = detect_emotion(image)
 
+        # Show emotion
         st.success(
             f"Detected Emotion: "
             f"{emotion.upper()}"
         )
 
+        # Get music recommendation
         music_query = get_music_query(
             emotion
         )
@@ -138,16 +146,17 @@ if img_file is not None:
             f"{music_query}"
         )
 
+        # Generate YouTube link
         youtube_link = get_youtube_link(
             music_query
         )
 
+        # Show clickable link
         st.markdown(
             f"""
-            ### 🎶 Recommended Songs
+            ### 🎶 Play Recommended Songs
 
-            [▶ Click Here to Play Music]
-            ({youtube_link})
+            [▶ Click Here to Open YouTube]({youtube_link})
             """
         )
 
@@ -155,7 +164,9 @@ if img_file is not None:
 
     except Exception as e:
 
-        st.error(f"Application Error: {e}")
+        st.error(
+            f"Application Error: {e}"
+        )
 
 # -----------------------------------
 # FOOTER
@@ -164,5 +175,5 @@ st.markdown("---")
 
 st.write(
     "Developed using Streamlit, "
-    "DeepFace, OpenCV, and YouTube"
+    "OpenCV, DeepFace, and YouTube"
 )
